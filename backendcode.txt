@@ -1,0 +1,650 @@
+now backend code  
+const express = require('express');
+const pool = require('../db');
+const router = express.Router();
+
+// Save candidate answers
+router.post('/', async (req, res) => {
+  const { question_id, candidate_answer } = req.body;
+  const query = 'INSERT INTO candidate_answers (question_id, candidate_answer) VALUES ($1, $2) RETURNING *';
+  const values = [question_id, candidate_answer];
+  try {
+    const result = await pool.query(query, values);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+module.exports = router;
+
+
+
+const express = require('express');
+const router = express.Router();
+const db = require('../db'); // Import the PostgreSQL pool
+
+// Candidate login
+router.post('/login/candidate', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const query = 'SELECT * FROM users WHERE username = $1 AND password = $2';
+        const { rows } = await db.query(query, [username, password]);
+
+        if (rows.length > 0) {
+            res.json({ success: true, message: 'Login successful', role: 'candidate' });
+        } else {
+            res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+    } catch (err) {
+        console.error('Error in candidate login:', err); // Log the error
+        res.status(500).json({ success: false, message: 'An error occurred', error: err.message });
+    }
+});
+
+// Admin login
+router.post('/login/admin', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const query = 'SELECT * FROM admins WHERE username = $1 AND password = $2';
+        const { rows } = await db.query(query, [username, password]);
+
+        if (rows.length > 0) {
+            res.json({ success: true, message: 'Login successful', role: 'admin' });
+        } else {
+            res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+    } catch (err) {
+        console.error('Error in admin login:', err); // Log the error
+        res.status(500).json({ success: false, message: 'An error occurred', error: err.message });
+    }
+});
+
+
+module.exports = router;
+
+
+
+
+const express = require('express');
+const router = express.Router();
+const pool = require('../db'); // PostgreSQL connection
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
+
+const SECRET_KEY = process.env.JWT_SECRET || 'your_secret_key';
+
+// **🔹 Admin Login (Updated with Logs)**
+router.post('/login/admin', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        console.log("🔹 Login Attempt:", username);
+
+        // Check if admin exists
+        const adminResult = await pool.query('SELECT * FROM admins WHERE username = $1', [username]);
+        if (adminResult.rows.length === 0) {
+            console.log("❌ No admin found in DB");
+            return res.status(401).json({ success: false, message: 'Invalid username or password' });
+        }
+
+        const admin = adminResult.rows[0];
+        console.log("🔹 User Found in DB:", admin);
+
+        // Compare password
+        const isMatch = await bcrypt.compare(password, admin.password);
+        console.log("🔹 Entered Password:", password);
+        console.log("🔹 Hashed Password from DB:", admin.password);
+        
+        if (!isMatch) {
+            console.log("❌ Password does not match");
+            return res.status(401).json({ success: false, message: 'Invalid username or password' });
+        }
+
+        // Generate JWT token
+        const token = jwt.sign({ id: admin.id, role: 'admin' }, SECRET_KEY, { expiresIn: '1h' });
+        console.log("✅ Login Successful, Generating JWT...");
+
+        res.json({ success: true, token, role: 'admin' });
+
+    } catch (err) {
+        console.error("❌ Server Error:", err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+module.exports = router;   
+
+
+const express = require('express');
+const axios = require('axios');
+const router = express.Router();
+
+const GEMINI_API_KEY = 'AIzaSyDCoaOIDrPWcsEGVSrRe0b5dgthU08KgcI';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+
+router.post('/', async (req, res) => {
+  const { candidate_answer, correct_answer } = req.body;
+
+  try { 
+    const response = await axios.post(
+      `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [{
+            text: `Rate similarity between these answers (0-100). 
+                   Correct: "${correct_answer}". 
+                   Candidate: "${candidate_answer}". 
+                   Return ONLY a number between 0 and 100.`
+          }]
+        }]
+      }
+    );
+
+    // Extract numerical score from Gemini's response
+    const textResponse = response.data.candidates[0].content.parts[0].text;
+    const similarityScore = parseInt(textResponse) || 0;
+    
+    res.status(200).json({ similarity_score: similarityScore });
+  } catch (err) {
+    console.error('Gemini API Error:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Evaluation failed' });
+  }
+});
+
+module.exports = router;
+
+//     // Display the prompt text in an alert
+//     // Note: alert() is a browser method and won't work in Node.js.
+//     // For server-side debugging, you can use console.log instead.
+//     console.log('Sending prompt:\n', promptText);
+    
+//     // If you really need a popup, you could integrate a UI on the client side
+//     // that shows the prompt before sending the request to this endpoint.
+
+//     // Make a POST request to the Gemini API
+//     const response = await axios.post(
+//       `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+//       {
+//         contents: [{
+//           parts: [{
+//             text: promptText
+//           }]
+//         }]
+//       },
+//       {
+//         headers: {
+//           'Content-Type': 'application/json'
+//         }
+//       }
+//     );
+
+//     // Extract the similarity score from the response
+//     const textResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '0';
+//     const similarityScore = parseInt(textResponse) || 0;
+    
+//     res.status(200).json({ similarity_score: similarityScore });
+//   } catch (err) {
+//     console.error('Gemini API Error:', err.response ? err.response.data : err.message);
+//     res.status(500).json({ error: 'Evaluation failed' });
+//   }
+// });
+
+// module.exports = router;
+
+// const express = require('express');
+// const router = express.Router();
+// // Simple evaluation endpoint (using a simple equality check for demonstration)
+// // This endpoint now responds at POST http://localhost:5000/api/evaluate
+// router.post('/', (req, res) => {
+//   const { candidate_answer, correct_answer } = req.body;
+//   try {
+//     // For demonstration, if the answers match exactly, we return 1 (otherwise 0)
+//     const similarityScore = candidate_answer === correct_answer ? 100 : 0;  // Change the score to be between 0 and 100
+//     res.status(200).json({ similarity_score: similarityScore });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send('Server error');
+//   }
+// });
+
+// router.post('/evaluate', async (req, res) => {
+//   const { candidate_answer, correct_answer } = req.body;
+
+//   try {
+//     // Log the candidate_answer and correct_answer to see what is being sent to the Gemini API
+//     console.log('Candidate Answer:', candidate_answer);
+//     console.log('Correct Answer:', correct_answer);
+
+//     // Get an authenticated client
+//     const client = await auth.getClient();
+
+//     // Build the prompt text
+//     const promptText = `Rate similarity between these answers (0-100). 
+//     Correct: "${correct_answer}". 
+//     Candidate: "${candidate_answer}". 
+//     Return ONLY a number between 0 and 100 as a percentage.`;
+
+//     console.log('Prompt being sent to Gemini API:', promptText);  // Log the prompt
+
+//     // Make a POST request to the Gemini API
+//     const response = await axios.post(
+//       `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+//       {
+//         contents: [{
+//           parts: [{
+//             text: promptText
+//           }]
+//         }]
+//       },
+//       {
+//         headers: {
+//           'Content-Type': 'application/json'
+//         }
+//       }
+//     );
+
+//     // Log the response from the Gemini API
+//     console.log('Gemini API Response:', response.data);
+
+//     // Extract the similarity score from the response
+//     const textResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '0';
+//     const similarityScore = parseInt(textResponse) || 0;
+
+//     // Ensure that the similarity score is between 0 and 100
+//     const similarityPercentage = Math.min(100, Math.max(0, similarityScore));
+
+//     res.status(200).json({ similarity_score: similarityPercentage });
+//   } catch (err) {
+//     console.error('Gemini API Error:', err.response ? err.response.data : err.message);
+//     res.status(500).json({ error: 'Evaluation failed' });
+//   }
+// });
+
+// module.exports = router;
+
+
+
+// router.post('/evaluate', async (req, res) => {
+//   const { candidate_answer, correct_answer } = req.body;
+
+//   try {
+//     // Log the candidate_answer and correct_answer to see what is being sent to the Gemini API
+//     console.log('Candidate Answer:', candidate_answer);
+//     console.log('Correct Answer:', correct_answer);
+
+//     // Get an authenticated client
+//     const client = await auth.getClient();
+
+//     // Build the prompt text
+//     const promptText = `Rate similarity between these answers (0-100). 
+//     Correct: "${correct_answer}". 
+//     Candidate: "${candidate_answer}". 
+//     Return ONLY a number between 0 and 100 as a percentage.`;
+
+//     console.log('Prompt being sent to Gemini API:', promptText);  // Log the prompt
+
+//     // Make a POST request to the Gemini API
+//     const response = await axios.post(
+//       `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+//       {
+//         contents: [{
+//           parts: [{
+//             text: promptText
+//           }]
+//         }]
+//       },
+//       {
+//         headers: {
+//           'Content-Type': 'application/json'
+//         }
+//       }
+//     );
+
+//     // Log the response from the Gemini API
+//     console.log('Gemini API Response:', response.data);
+
+//     // Extract the similarity score from the response
+//     const textResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '0';
+//     const similarityScore = parseInt(textResponse) || 0;
+
+//     // Ensure that the similarity score is between 0 and 100
+//     const similarityPercentage = Math.min(100, Math.max(0, similarityScore));
+
+//     res.status(200).json({ similarity_score: similarityPercentage });
+//   } catch (err) {
+//     console.error('Gemini API Error:', err.response ? err.response.data : err.message);
+//     res.status(500).json({ error: 'Evaluation failed' });
+//   }
+// });
+
+// module.exports = router; 
+// // const express = require('express');
+// // const pool = require('../db');
+// // const router = express.Router();
+
+// // // Add questions and answers
+// // router.post('/questions', async (req, res) => {
+// //   const { question, answer } = req.body;
+// //   const query = 'INSERT INTO questions (question_text, correct_answer) VALUES ($1, $2) RETURNING *';
+// //   const values = [question, answer];
+// //   try {
+// //     const result = await pool.query(query, values);
+// //     res.status(201).json(result.rows[0]);
+// //   } catch (err) {
+// //     console.error(err);
+// //     res.status(500).send('Server error');
+// //   }
+// // });
+
+// // // Get all questions
+// // router.get('/questions', async (req, res) => {
+// //   try {
+// //     const result = await pool.query('SELECT * FROM questions');
+// //     res.status(200).json(result.rows);
+// //   } catch (err) {
+// //     console.error(err);
+// //     res.status(500).send('Server error');
+// //   }
+// // });
+
+// // module.exports = router;
+// // const express = require('express');
+// // const db = require('../db'); 
+// // const router = express.Router();
+
+// // router.post('/add-question', async (req, res) => {
+// //   try {
+// //     const { question_text, correct_answer } = req.body;
+
+// //     if (!question_text || !correct_answer) {
+// //       return res.status(400).json({ message: 'Both question_text and correct_answer are required' });
+// //     }
+
+// //     const result = await db.query(
+// //       'INSERT INTO questions (question_text, correct_answer) VALUES ($1, $2) RETURNING *',
+// //       [question_text, correct_answer]
+// //     );
+
+// //     res.status(201).json({ message: 'Question added successfully', question: result.rows[0] });
+// //   } catch (error) {
+// //     console.error('Error adding question:', error);
+// //     res.status(500).json({ message: 'Internal server error' });
+// //   }
+// // });
+// // module.exports = router;
+// const express = require('express');
+// const pool = require('../db');
+// const router = express.Router();
+
+// // Get all questions
+// router.get('/', async (req, res) => {
+//   try {
+//     const result = await pool.query('SELECT * FROM questions');
+//     res.status(200).json(result.rows);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send('Server error');
+//   }
+// });
+// router.post('/', async (req, res) => {
+//   const { question_text, correct_answer } = req.body;
+//   try {
+//     const result = await pool.query(
+//       'INSERT INTO questions (question_text, correct_answer) VALUES ($1, $2) RETURNING *',
+//       [question_text, correct_answer]
+//     );
+//     res.status(201).json(result.rows[0]);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send('Server error');
+//   }
+// });
+
+// module.exports = router;
+
+const express = require('express');
+const pool = require('../db');
+const router = express.Router();
+
+// Get all questions
+router.get('/', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM questions');
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// Add new question
+router.post('/', async (req, res) => {
+  const { question_text, correct_answer } = req.body;
+
+  // Validate if question_text and correct_answer are provided
+  if (!question_text || !correct_answer) {
+    return res.status(400).json({ message: 'Both question_text and correct_answer are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO questions (question_text, correct_answer) VALUES ($1, $2) RETURNING *',
+      [question_text, correct_answer]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+module.exports = router; 
+
+
+const bcrypt = require('bcryptjs');
+
+async function generateHash() {
+    const password = "adminpassword"; // Set your test password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    console.log("Hashed Password:", hashedPassword);
+}
+
+generateHash();
+
+
+
+
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  user: 'postgres', // Replace with your PostgreSQL username
+  host: 'localhost',
+  database: 'interview_platform', // Database name
+  password: 'sriphani111327', // Replace with your PostgreSQL password
+  port: 5432,
+});
+
+module.exports = pool;
+   
+// const express = require('express');
+// const cors = require('cors'); // ✅ Added CORS
+// require('dotenv').config();
+// const app = express();
+// const authRoutes = require('./routes/auth');
+
+// app.use(cors()); // ✅ Allow frontend to access backend
+// app.use(express.json());
+
+// app.use('/api/auth', authRoutes); // Updated route prefix
+
+// const PORT = process.env.PORT || 5000;
+// app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
+const app = express();
+const authRoutes = require('./routes/auth'); // Import auth routes
+
+app.use(cors());
+app.use(express.json());
+
+// Mount auth routes
+app.use('/api/auth', authRoutes);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`)); 
+
+
+
+
+now using all thsi make this  work seall the routes corerct make changes and give me complete code for a file where changes are mad newserver.js
+const express = require('express');
+const cors = require('cors');
+const { Pool } = require('pg');
+require('dotenv').config();
+
+// Initialize Express app
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// PostgreSQL connection
+const pool = new Pool({
+  user: 'postgres', // Replace with your PostgreSQL username
+  host: 'localhost',
+  database: 'interview_platform', // Database name
+  password: 'sriphani111327', // Replace with your PostgreSQL password
+  port: 5432,
+});
+
+// Routes
+
+// 1. Auth Routes
+const authRouter = express.Router();
+
+// Candidate login
+authRouter.post('/login/candidate', async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const query = 'SELECT * FROM users WHERE username = $1 AND password = $2';
+    const { rows } = await pool.query(query, [username, password]);
+
+    if (rows.length > 0) {
+      res.json({ success: true, message: 'Login successful', role: 'candidate' });
+    } else {
+      res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+  } catch (err) {
+    console.error('Error in candidate login:', err);
+    res.status(500).json({ success: false, message: 'An error occurred', error: err.message });
+  }
+});
+
+// Admin login
+authRouter.post('/login/admin', async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const query = 'SELECT * FROM admins WHERE username = $1 AND password = $2';
+    const { rows } = await pool.query(query, [username, password]);
+
+    if (rows.length > 0) {
+      res.json({ success: true, message: 'Login successful', role: 'admin' });
+    } else {
+      res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+  } catch (err) {
+    console.error('Error in admin login:', err);
+    res.status(500).json({ success: false, message: 'An error occurred', error: err.message });
+  }
+});
+
+// Mount auth routes
+app.use('/api/auth', authRouter);
+
+// 2. Questions Routes
+const questionsRouter = express.Router();
+
+// Get all questions
+questionsRouter.get('/', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM questions');
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// Add new question
+questionsRouter.post('/', async (req, res) => {
+  const { question_text, correct_answer } = req.body;
+
+  // Validate if question_text and correct_answer are provided
+  if (!question_text || !correct_answer) {
+    return res.status(400).json({ message: 'Both question_text and correct_answer are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO questions (question_text, correct_answer) VALUES ($1, $2) RETURNING *',
+      [question_text, correct_answer]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// Mount questions routes
+app.use('/api/questions', questionsRouter);
+
+// 3. Answers Routes
+const answersRouter = express.Router();
+
+// Save candidate answers
+answersRouter.post('/', async (req, res) => {
+  const { question_id, candidate_answer } = req.body;
+  const query = 'INSERT INTO candidate_answers (question_id, candidate_answer) VALUES ($1, $2) RETURNING *';
+  const values = [question_id, candidate_answer];
+  try {
+    const result = await pool.query(query, values);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// Mount answers routes
+app.use('/api/answers', answersRouter);
+
+// 4. Evaluate Routes
+const evaluateRouter = express.Router();
+
+// Evaluate candidate answers
+evaluateRouter.post('/', async (req, res) => {
+  const { candidate_answer, correct_answer } = req.body;
+
+  try {
+    // Example of simple similarity scoring (this can be expanded as per your requirement)
+    const similarityScore = candidate_answer === correct_answer ? 100 : 0;
+    res.status(200).json({ similarity_score: similarityScore });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// Mount evaluate routes
+app.use('/api/evaluate', evaluateRouter);
+
+// Start the server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

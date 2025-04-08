@@ -1,0 +1,679 @@
+frontend code 
+ 
+i am goving to give u the complete tproject code tell me what is wrong first frontend code  import React, { useState } from 'react';
+import axios from 'axios';
+
+const AddQuestion = () => {
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate inputs
+    if (!question || !answer) {
+      setError('Both question and answer are required');
+      return;
+    }
+
+    const newQuestion = {
+      question_text: question, // Ensure question is not empty
+      correct_answer: answer,  // Ensure answer is not empty
+    };
+
+    try {
+      // POST request to backend
+      const response = await axios.post('http://localhost:5000/api/questions', newQuestion);
+      console.log('Question added:', response.data);
+      setQuestion('');
+      setAnswer('');
+      setError('');
+    } catch (error) {
+      console.error('Error adding question:', error.response ? error.response.data : error.message);
+      setError('Failed to add question. Please try again.');
+    }
+  };
+
+  return (
+    <div>
+      <h2>Add a New Question</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Question:</label>
+          <input
+            type="text"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Enter question"
+            required
+          />
+        </div>
+        <div>
+          <label>Answer:</label>
+          <input
+            type="text"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder="Enter correct answer"
+            required
+          />
+        </div>
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        <button type="submit">Add Question</button>
+      </form>
+    </div>
+  );
+};
+
+export default AddQuestion;
+
+
+
+import React, { useState } from 'react';
+import { addQuestion } from '../services/api';  // Ensure this import is correct
+
+const AdminComponent = () => {
+  const [questionText, setQuestionText] = useState('');
+  const [correctAnswer, setCorrectAnswer] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!questionText.trim() || !correctAnswer.trim()) {
+      alert('Please fill in all fields.');
+      return;
+    }
+
+    await addQuestion({ question_text: questionText, correct_answer: correctAnswer });
+    setQuestionText('');
+    setCorrectAnswer('');
+    alert('Question added successfully!');
+  };
+
+  return (
+    <div>
+      <h2>Add a New Question</h2>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          placeholder="Enter question"
+          value={questionText}
+          onChange={(e) => setQuestionText(e.target.value)}
+          required
+        />
+        <input
+          type="text"
+          placeholder="Enter correct answer"
+          value={correctAnswer}
+          onChange={(e) => setCorrectAnswer(e.target.value)}
+          required
+        />
+        <button type="submit">Add Question</button>
+      </form>
+    </div>
+  );
+};
+
+export default AdminComponent;  
+import React, { useState, useEffect, useRef } from 'react';
+import { getQuestions, saveAnswer, evaluateAnswer } from '../services/api';  // Ensure these imports are correct
+import Results from './Results';
+
+const CandidateComponent = () => {
+  const [questions, setQuestions] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [candidateAnswers, setCandidateAnswers] = useState([]);
+  const [results, setResults] = useState([]);
+  const [testCompleted, setTestCompleted] = useState(false);
+  const [timer, setTimer] = useState(60);
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcript, setTranscript] = useState('');
+
+  const videoRef = useRef(null);
+  const timerRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  // Fetch questions from the backend
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const response = await getQuestions();
+        setQuestions(response.data);
+      } catch (err) {
+        console.error('Error fetching questions:', err);
+      }
+    };
+    fetchQuestions();
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      videoRef.current.srcObject = stream;
+
+      if ('webkitSpeechRecognition' in window) {
+        recognitionRef.current = new webkitSpeechRecognition();
+        recognitionRef.current.lang = 'en-US';
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+
+        recognitionRef.current.onresult = (event) => {
+          let finalTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript + ' ';
+            }
+          }
+          setTranscript(finalTranscript.trim());
+        };
+
+        recognitionRef.current.start();
+        setIsRecording(true);
+        startTimer();
+      } else {
+        alert('Speech recognition not supported in your browser.');
+      }
+    } catch (err) {
+      console.error('Error accessing media devices:', err);
+    }
+  };
+
+  const startTimer = () => {
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          stopRecording();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const stopRecording = async () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsRecording(false);
+    clearInterval(timerRef.current);
+    await saveTranscript();
+  };
+
+  const saveTranscript = async () => {
+    if (!transcript.trim()) {
+      alert('No answer detected! Please try again.');
+      return;
+    }
+
+    const updatedAnswers = [...candidateAnswers, transcript];
+    setCandidateAnswers(updatedAnswers);
+    await saveAnswer(questions[currentQuestion].id, transcript);
+
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion((prev) => prev + 1);
+      setTranscript('');
+      setTimer(60);
+    } else {
+      evaluateAnswers(updatedAnswers);
+    }
+  };
+
+  const evaluateAnswers = async (answers) => {
+    const evaluationResults = [];
+    for (let i = 0; i < questions.length; i++) {
+      const response = await evaluateAnswer(answers[i], questions[i].correct_answer);
+      evaluationResults.push({
+        candidate_answer: answers[i],
+        similarity_score: response.data.similarity_score,
+      });
+    }
+    setResults(evaluationResults);
+    setTestCompleted(true);
+  };
+
+  return (
+    <div>
+      {!testCompleted ? (
+        <div>
+          {questions.length > 0 && (
+            <div>
+              <h2>Question {currentQuestion + 1}</h2>
+              <p>{questions[currentQuestion].question_text}</p>
+
+              <video ref={videoRef} autoPlay muted style={{ width: '500px', height: '375px' }} />
+
+              <div>Time Remaining: {timer} seconds</div>
+              <h3>Transcript:</h3>
+              <p>{transcript}</p>
+
+              {!isRecording ? (
+                <button onClick={startRecording}>Start Recording</button>
+              ) : (
+                <button onClick={stopRecording}>Stop Recording</button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <Results results={results} />
+      )}
+    </div>
+  );
+};
+
+export default CandidateComponent; 
+import React, { useState, useEffect, useRef } from 'react';
+import { getQuestions, saveAnswer, evaluateAnswer } from '../services/api';
+import Results from './Results';
+
+const Interview = () => {
+  const [questions, setQuestions] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [candidateAnswers, setCandidateAnswers] = useState([]);
+  const [results, setResults] = useState([]);
+  const [testCompleted, setTestCompleted] = useState(false);
+  const [timer, setTimer] = useState(60);
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcript, setTranscript] = useState('');
+
+  const videoRef = useRef(null);
+  const timerRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+      videoRef.current.srcObject = stream;
+
+      if ('webkitSpeechRecognition' in window) {
+        recognitionRef.current = new webkitSpeechRecognition();
+        recognitionRef.current.lang = 'en-US';
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+
+        recognitionRef.current.onresult = (event) => {
+          let finalTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript + ' ';
+            }
+          }
+          setTranscript(finalTranscript.trim());
+        };
+
+        recognitionRef.current.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+        };
+
+        recognitionRef.current.start();
+        setIsRecording(true);
+        startTimer();
+      } else {
+        alert('Your browser does not support speech recognition.');
+      }
+    } catch (err) {
+      console.error('Error accessing media devices:', err);
+    }
+  };
+
+  const startTimer = () => {
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          stopRecording();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsRecording(false);
+    clearInterval(timerRef.current);
+    saveTranscript();
+  };
+
+  const saveTranscript = async () => {
+    if (!transcript.trim()) {
+      alert('No answer detected! Please try again.');
+      return;
+    }
+
+    const updatedAnswers = [...candidateAnswers, transcript];
+    setCandidateAnswers(updatedAnswers);
+    await saveAnswer(questions[currentQuestion].id, transcript);
+    recognitionRef.current = null;
+
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion((prev) => prev + 1);
+      setTimer(60);
+      setTranscript('');
+    } else {
+      evaluateAnswers(updatedAnswers);
+    }
+  };
+
+  const evaluateAnswers = async (answers) => {
+    const results = [];
+    for (let i = 0; i < questions.length; i++) {
+      const response = await evaluateAnswer(answers[i], questions[i].correct_answer);
+      results.push({
+        answer: answers[i],
+        similarity_score: response.data.similarity_score
+      });
+    }
+    setResults(results);
+    setTestCompleted(true);
+  };
+
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const response = await getQuestions();
+        setQuestions(response.data);
+      } catch (err) {
+        console.error('Error fetching questions:', err);
+      }
+    };
+    fetchQuestions();
+  }, []);
+
+  return (
+    <div>
+      {!testCompleted ? (
+        <div>
+          {questions.length > 0 && (
+            <div>
+              <h2>Question {currentQuestion + 1}</h2>
+              <p>{questions[currentQuestion].question_text}</p>
+
+              <video ref={videoRef} autoPlay muted style={{ width: '500px', height: '375px' }} />
+
+              <div>Time Remaining: {timer} seconds</div>
+              <h3>Transcript:</h3>
+              <p>{transcript}</p>
+
+              {!isRecording ? (
+                <button onClick={startRecording}>Start Recording</button>
+              ) : (
+                <button onClick={stopRecording}>Stop Recording</button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <Results results={results} />
+      )}
+    </div>
+  );
+};
+
+export default Interview;  
+
+// import React, { useState } from 'react';
+// import axios from 'axios';
+
+// const Login = ({ setAuth, setRole }) => {
+//     const [username, setUsername] = useState('');
+//     const [password, setPassword] = useState('');
+//     const [role, setRoleState] = useState('candidate');
+
+//     const handleLogin = async (e) => {
+//         e.preventDefault();
+
+//         try {
+//             const endpoint = role === 'admin' 
+//                 ? 'http://localhost:5000/api/auth/login/admin' 
+//                 : 'http://localhost:5000/api/auth/login/candidate';
+
+//             const res = await axios.post(endpoint, { username, password });
+            
+//             if (res.data.success) {
+//                 localStorage.setItem('token', res.data.token); // Store JWT
+//                 setAuth(true); // Set authentication to true
+//                 setRole(role); // Set the role of the user
+//                 alert(`Login successful as ${role}`);
+//             } else {
+//                 alert('Invalid credentials');
+//             }
+//         } catch (err) {
+//             alert('An error occurred during login');
+//         }
+//     };
+
+//     return (
+//         <div>
+//             <h2>Login</h2>
+//             <form onSubmit={handleLogin}>
+//                 <input 
+//                     type="text" 
+//                     placeholder="Username" 
+//                     value={username} 
+//                     onChange={(e) => setUsername(e.target.value)} 
+//                     required 
+//                 />
+//                 <input 
+//                     type="password" 
+//                     placeholder="Password" 
+//                     value={password} 
+//                     onChange={(e) => setPassword(e.target.value)} 
+//                     required 
+//                 />
+//                 <select value={role} onChange={(e) => setRoleState(e.target.value)}>
+//                     <option value="candidate">Candidate</option>
+//                     <option value="admin">HR/Admin</option>
+//                 </select>
+//                 <button type="submit">Login</button>
+//             </form>
+//         </div>
+//     );
+// };
+
+// export default Login;
+import React, { useState } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+
+const Login = ({ setAuth, setRole }) => {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [role, setRoleState] = useState('candidate');
+    const navigate = useNavigate();
+         
+    const handleLogin = async (e) => {
+        e.preventDefault();
+    
+        try {
+            const endpoint = role === 'admin' 
+    ? 'http://localhost:5000/api/auth/login/admin' 
+    : 'http://localhost:5000/api/auth/login/candidate';
+    
+            const res = await axios.post(endpoint, { username, password });
+            
+            if (res.data.success) {
+                setAuth(true); // Set authentication to true
+                setRole(role); // Set the role of the user
+                alert(`Login successful as ${role}`);
+                
+                // Redirect based on role
+                if (role === 'admin') {
+                    navigate('/admin');
+                } else {
+                    navigate('/interview');
+                }
+            } else {
+                alert('Invalid credentials');
+            }
+        } catch (err) {
+            console.error(err); // Log the full error to the console
+            alert('An error occurred during login: ' + err.message); // Show the error message in the alert
+        }
+    };
+    return (
+        <div>
+            <h2>Login</h2>
+            <form onSubmit={handleLogin}>
+                <input 
+                    type="text" 
+                    placeholder="Username" 
+                    value={username} 
+                    onChange={(e) => setUsername(e.target.value)} 
+                    required 
+                />
+                <input 
+                    type="password" 
+                    placeholder="Password" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    required 
+                />
+                <select value={role} onChange={(e) => setRoleState(e.target.value)}>
+                    <option value="candidate">Candidate</option>
+                    <option value="admin">HR/Admin</option>
+                </select>
+                <button type="submit">Login</button>
+            </form>
+        </div>
+    );
+};
+
+export default Login;
+
+
+
+
+import React from 'react';
+
+const Results = ({ results }) => {
+  return (
+    <div>
+      <h2>Test Results</h2>
+      {results.length > 0 ? (
+        <div>
+          <table>
+            <thead>
+              <tr>
+                <th>Question</th>
+                <th>Your Answer</th>
+                <th>Similarity Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((result, index) => (
+                <tr key={index}>
+                  <td>Question {index + 1}</td>
+                  <td>{result.candidate_answer}</td>
+                  <td>{result.similarity_score}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <h3>Overall Performance</h3>
+          <p>
+            Average Score: {(
+              results.reduce((sum, result) => sum + result.similarity_score, 0) / results.length
+            ).toFixed(2)}
+          </p>
+        </div>
+      ) : (
+        <p>No results to display.</p>
+      )}
+    </div>
+  );
+};
+
+export default Results;
+
+api.js inside services  // import axios from 'axios';
+
+// const api = axios.create({
+//   baseURL: 'http://localhost:5000/api',
+// });
+
+// export const addQuestion = (question, answer) => api.post('/questions', { question, answer });
+// export const getQuestions = () => api.get('/questions');
+// export const saveAnswer = (question_id, candidate_answer) => api.post('/answers', { question_id, candidate_answer });
+// export const evaluateAnswer = (candidate_answer, correct_answer) => api.post('/evaluate', { candidate_answer, correct_answer });
+
+// export default api;
+
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api',
+});
+
+export const addQuestion = (question, answer) => api.post('/questions', { question, answer });
+export const getQuestions = () => api.get('/questions');
+export const saveAnswer = (question_id, candidate_answer) => api.post('/answers', { question_id, candidate_answer });
+export const evaluateAnswer = (candidate_answer, correct_answer) => api.post('/evaluate', { candidate_answer, correct_answer });
+
+export default api;
+  
+
+
+
+
+// import React, { useState } from 'react'; 
+// import Login from './components/Login';
+// import Interview from './components/Interview';
+// import AdminComponent from './components/AdminComponent';
+
+// function App() {
+//   const [isAuthenticated, setIsAuthenticated] = useState(false);
+//   const [role, setRole] = useState('');
+
+//   return (
+//     <div>
+//       <Login setAuth={setIsAuthenticated} setRole={setRole} />
+//       {isAuthenticated && role === 'admin' && <AdminComponent />}
+//       {isAuthenticated && role === 'candidate' && <Interview />}
+//     </div>
+//   );
+// }
+
+// export default App;
+
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Login from './components/Login';
+import AdminComponent from './components/AdminComponent';
+import Interview from './components/Interview';
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [role, setRole] = useState('');
+
+  return (
+    <Router>
+      <div>
+        {!isAuthenticated ? (
+          <Login setAuth={setIsAuthenticated} setRole={setRole} />
+        ) : (
+          <Routes>
+            <Route path="/admin" element={<AdminComponent />} />
+            <Route path="/interview" element={<Interview />} />
+          </Routes>
+        )}
+      </div>
+    </Router>
+  );
+}
+
+export default App;
+  import React from 'react';
+import ReactDOM from 'react-dom';
+import App from './App';
+
+ReactDOM.render(<App />, document.getElementById('root'));  whole complete frontend i gave u
