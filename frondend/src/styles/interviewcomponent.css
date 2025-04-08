@@ -1,0 +1,360 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary: #4361ee;
+  --primary-dark: #3a56d4;
+  --secondary: #4cc9f0;
+  --danger: #ef476f;
+  --success: #06d6a0;
+  --warning: #ffd166;
+  --dark: #2b2d42;
+  --light: #f8f9fa;
+  --gray: #adb5bd;
+  --transition: all 0.3s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #f5f7fb;
+  color: var(--dark);
+  line-height: 1.6;
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+/* Header Styles */
+.interview-header {
+  background-color: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 15px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin: 0;
+}
+
+.logout-btn {
+  background-color: transparent;
+  border: 1px solid var(--gray);
+  color: var(--dark);
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 500;
+}
+
+.logout-btn:hover {
+  background-color: var(--gray);
+  color: white;
+}
+
+/* Interview Content */
+.interview-content {
+  padding: 40px 0;
+}
+
+.question-container {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+  padding: 30px;
+  transition: transform 0.5s ease;
+}
+
+.question-container.slide-out {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.question-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+  position: relative;
+}
+
+.question-number::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 60px;
+  height: 4px;
+  background-color: var(--primary);
+  border-radius: 2px;
+}
+
+/* Timer Styles */
+.timer {
+  text-align: center;
+}
+
+.timer-circle {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+}
+
+.timer svg {
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.timer-background {
+  fill: none;
+  stroke: #e9ecef;
+  stroke-width: 8;
+}
+
+.timer-progress {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 283;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s linear;
+}
+
+.timer-warning .timer-progress {
+  stroke: var(--danger);
+}
+
+.timer-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.timer p {
+  margin-top: 5px;
+  font-size: 0.9rem;
+  color: var(--gray);
+}
+
+/* Question Text */
+.question-text {
+  background-color: #f8f9fa;
+  border-left: 4px solid var(--primary);
+  padding: 20px;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 30px;
+  font-size: 1.2rem;
+}
+
+/* Interview Media Section */
+.interview-media {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+@media (max-width: 768px) {
+  .interview-media {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Video Container */
+.video-container {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  background-color: #000;
+  aspect-ratio: 4/3;
+}
+
+.candidate-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recording-indicator {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.recording-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: var(--danger);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Transcript Container */
+.transcript-container {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.transcript-container h3 {
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+  color: var(--dark);
+}
+
+.transcript-box {
+  flex: 1;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  min-height: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.transcript-placeholder {
+  color: var(--gray);
+  font-style: italic;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.record-btn {
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.record-btn.start {
+  background-color: var(--primary);
+  color: white;
+}
+
+.record-btn.start:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+}
+
+.record-btn.stop {
+  background-color: var(--danger);
+  color: white;
+}
+
+.record-btn.stop:hover {
+  background-color: #d64161;
+  transform: translateY(-2px);
+}
+
+.btn-icon {
+  font-size: 1.2rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.question-container {
+  animation: fadeIn 0.5s ease;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+  .question-header {
+    flex-direction: column;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  
+  .timer {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 576px) {
+  .interview-content {
+    padding: 20px 0;
+  }
+  
+  .question-container {
+    padding: 20px;
+  }
+  
+  .question-number {
+    font-size: 1.5rem;
+  }
+  
+  .question-text {
+    font-size: 1rem;
+  }
+}

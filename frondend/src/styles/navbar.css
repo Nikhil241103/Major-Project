@@ -1,0 +1,227 @@
+/* Modern Navbar Styles */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+:root {
+    --primary-color: #3a36e0;
+    --primary-dark: #2c29c8;
+    --primary-light: #5551ff;
+    --accent-color: #ff6b6b;
+    --text-color: #333;
+    --text-light: #767676;
+    --bg-color: #ffffff;
+    --bg-light: #f8f9fa;
+    --shadow: 0 3px 10px rgba(58, 54, 224, 0.1);
+    --border-radius: 8px;
+    --transition: all 0.25s ease;
+}
+
+.main-navbar {
+    width: 100%;
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    background-color: var(--bg-color);
+    box-shadow: var(--shadow);
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+}
+
+.navbar-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 2rem;
+}
+
+.navbar-logo {
+    display: flex;
+    align-items: center;
+}
+
+.navbar-logo a {
+    text-decoration: none;
+    color: var(--text-color);
+    font-weight: 700;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.logo-text {
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.accent {
+    color: var(--primary-color);
+}
+
+.navbar-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+}
+
+.navbar-menu li {
+    margin: 0 0.125rem;
+    position: relative;
+}
+
+.navbar-menu li a {
+    color: var(--text-color);
+    text-decoration: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    transition: var(--transition);
+}
+
+.navbar-menu li.active a,
+.navbar-menu li a:hover {
+    color: var(--primary-color);
+    background-color: rgba(58, 54, 224, 0.05);
+}
+
+.navbar-menu li a i {
+    margin-right: 0.5rem;
+    font-size: 1rem;
+}
+
+.divider {
+    height: 28px;
+    width: 1px;
+    background-color: #eaeaea;
+    margin: 0 0.75rem;
+}
+
+.logout-button {
+    background-color: transparent;
+    border: 1px solid #eaeaea;
+    color: var(--text-color);
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: 500;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    font-family: 'Poppins', sans-serif;
+}
+
+.logout-button:hover {
+    background-color: #ffeeee;
+    border-color: #ffcdcd;
+    color: #e53935;
+}
+
+.logout-button i {
+    margin-right: 0.5rem;
+}
+
+.menu-toggle {
+    display: none;
+    cursor: pointer;
+}
+
+.hamburger {
+    width: 24px;
+    height: 24px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+}
+
+.hamburger span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background-color: var(--text-color);
+    transition: var(--transition);
+}
+
+.hamburger.active span:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+    .navbar-container {
+        padding: 0.75rem 1rem;
+    }
+
+    .menu-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .navbar-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background-color: var(--bg-color);
+        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1rem 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease, padding 0.3s ease;
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .navbar-menu.active {
+        max-height: 500px;
+        padding: 1rem 0;
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .navbar-menu li {
+        width: 100%;
+        margin: 0;
+    }
+
+    .navbar-menu li a {
+        padding: 0.75rem 1.5rem;
+        width: 100%;
+        display: flex;
+    }
+
+    .divider {
+        width: calc(100% - 3rem);
+        height: 1px;
+        margin: 0.5rem 1.5rem;
+    }
+
+    .profile-dropdown {
+        width: 100%;
+    }
+
+    .profile-menu {
+        padding: 0.5rem 1.5rem;
+    }
+
+    .logout-button {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
